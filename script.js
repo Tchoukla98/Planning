@@ -12,8 +12,6 @@ let events = JSON.parse(localStorage.getItem('planning_events')) || {};
 let rdvs = JSON.parse(localStorage.getItem('planning_rdvs')) || {};
 let todos = JSON.parse(localStorage.getItem('planning_todos')) || [];
 
-// false = clic sur une date ouvre le pop-up (RDV + Todo-list)
-// true = clic sur une date applique le statut sélectionné
 let isEditingStatus = false;
 let selectedStatusId = statuses.length > 0 ? statuses[0].id : 'CLEAR';
 
@@ -35,7 +33,18 @@ const hexToRgba = (hex, alpha) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
-/* --- GESTION DU MODE ÉDITION DES STATUTS --- */
+// Normalise les anciens RDV (texte simple) et les nouveaux RDV ({ time, text })
+const normalizeRdv = (item) => {
+  if (typeof item === 'string') return { time: '', text: item };
+  return { time: item.time || '', text: item.text || '' };
+};
+
+const formatRdvDisplay = (item) => {
+  const r = normalizeRdv(item);
+  return r.time ? `${r.time} ${r.text}` : r.text;
+};
+
+/* --- GESTION DU MODE ÉDITION DES STATUTS & COULEURS --- */
 const toggleEditStatusBtn = document.getElementById('toggleEditStatusBtn');
 const statusToolbar = document.getElementById('statusToolbar');
 const doneEditStatusBtn = document.getElementById('doneEditStatusBtn');
@@ -71,24 +80,46 @@ function renderStatuses() {
     pill.style.backgroundColor = hexToRgba(status.color, 0.22);
     pill.style.color = status.color;
 
-    pill.innerHTML = `
-      <span class="status-dot" style="background:${status.color}"></span>
-      <span>${status.name}</span>
-      <span class="delete-status" title="Supprimer">✕</span>
-    `;
-
-    pill.onclick = (e) => {
-      if (e.target.classList.contains('delete-status')) {
-        statuses = statuses.filter(s => s.id !== status.id);
-        if (selectedStatusId === status.id) selectedStatusId = statuses[0]?.id || 'CLEAR';
-        save();
-        renderStatuses();
-        renderCalendar();
-      } else {
-        selectedStatusId = status.id;
-        renderStatuses();
-      }
+    // Input color intégré pour modifier directement la couleur du statut existant
+    const colorInput = document.createElement('input');
+    colorInput.type = 'color';
+    colorInput.className = 'status-color-picker';
+    colorInput.value = status.color;
+    colorInput.title = 'Changer la couleur';
+    colorInput.onclick = (e) => e.stopPropagation();
+    colorInput.oninput = (e) => {
+      status.color = e.target.value;
+      pill.style.backgroundColor = hexToRgba(status.color, 0.22);
+      pill.style.color = status.color;
+      save();
+      renderCalendar();
     };
+
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = status.name;
+
+    const delSpan = document.createElement('span');
+    delSpan.className = 'delete-status';
+    delSpan.title = 'Supprimer';
+    delSpan.textContent = '✕';
+    delSpan.onclick = (e) => {
+      e.stopPropagation();
+      statuses = statuses.filter(s => s.id !== status.id);
+      if (selectedStatusId === status.id) selectedStatusId = statuses[0]?.id || 'CLEAR';
+      save();
+      renderStatuses();
+      renderCalendar();
+    };
+
+    pill.appendChild(colorInput);
+    pill.appendChild(nameSpan);
+    pill.appendChild(delSpan);
+
+    pill.onclick = () => {
+      selectedStatusId = status.id;
+      renderStatuses();
+    };
+
     container.appendChild(pill);
   });
 }
@@ -190,11 +221,11 @@ function renderCalendar() {
       bottomDiv.appendChild(badge);
     }
 
-    const dayRdvs = rdvs[dateKey] || [];
+    const dayRdvs = (rdvs[dateKey] || []).map(normalizeRdv).sort((a, b) => a.time.localeCompare(b.time));
     dayRdvs.slice(0, 2).forEach(r => {
       const pill = document.createElement('div');
       pill.className = 'rdv-pill';
-      pill.textContent = r;
+      pill.textContent = formatRdvDisplay(r);
       bottomDiv.appendChild(pill);
     });
     if (dayRdvs.length > 2) {
@@ -206,10 +237,8 @@ function renderCalendar() {
 
     cell.appendChild(bottomDiv);
 
-    // Clic n'importe où sur la case du jour
     cell.onclick = () => {
       if (isEditingStatus) {
-        // Mode modification des statuts activé -> applique la couleur d'un toucher
         if (selectedStatusId === 'CLEAR' || events[dateKey] === selectedStatusId) {
           delete events[dateKey];
         } else {
@@ -218,7 +247,6 @@ function renderCalendar() {
         save();
         renderCalendar();
       } else {
-        // Mode normal -> ouvre le pop-up RDV + Todo-list de cette date
         openDayDetailModal(dateKey, dateObj);
       }
     };
@@ -229,7 +257,7 @@ function renderCalendar() {
   renderSummary(year, month, daysInMonth);
 }
 
-/* --- POP-UP 1 : DÉTAILS DU JOUR (RDV + LIEN TODO-LIST) --- */
+/* --- POP-UP 1 : DÉTAILS DU JOUR (RDV AVEC HEURE + LIEN TODO-LIST) --- */
 function openDayDetailModal(dateKey, dateObj) {
   activeDetailDateKey = dateKey;
   document.getElementById('dayDetailTitle').textContent = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(dateObj);
@@ -242,17 +270,21 @@ function renderDayDetailContent() {
 
   const list = document.getElementById('modalRdvList');
   list.innerHTML = '';
-  const dayRdvs = rdvs[activeDetailDateKey] || [];
+  const rawRdvs = rdvs[activeDetailDateKey] || [];
+  const sortedRdvs = rawRdvs
+    .map((item, originalIdx) => ({ ...normalizeRdv(item), originalIdx }))
+    .sort((a, b) => a.time.localeCompare(b.time));
 
-  if (dayRdvs.length === 0) {
+  if (sortedRdvs.length === 0) {
     list.innerHTML = '<p style="color:#64748b; font-size:0.85rem;">Aucun rendez-vous prévu.</p>';
   } else {
-    dayRdvs.forEach((text, idx) => {
+    sortedRdvs.forEach((r) => {
       const item = document.createElement('div');
       item.className = 'item-row';
-      item.innerHTML = `<span>${text}</span><button type="button">Suppr.</button>`;
+      const timeHtml = r.time ? `<span class="rdv-time-tag">${r.time}</span>` : '';
+      item.innerHTML = `<div>${timeHtml}<span>${r.text}</span></div><button type="button">Suppr.</button>`;
       item.querySelector('button').onclick = () => {
-        rdvs[activeDetailDateKey].splice(idx, 1);
+        rdvs[activeDetailDateKey].splice(r.originalIdx, 1);
         if (rdvs[activeDetailDateKey].length === 0) delete rdvs[activeDetailDateKey];
         save();
         renderDayDetailContent();
@@ -274,12 +306,17 @@ function renderDayDetailContent() {
 
 document.getElementById('addRdvForm').onsubmit = (e) => {
   e.preventDefault();
-  const input = document.getElementById('newRdvInput');
-  const val = input.value.trim();
-  if (!val || !activeDetailDateKey) return;
+  const timeInput = document.getElementById('newRdvTime');
+  const textInput = document.getElementById('newRdvInput');
+  const timeVal = timeInput.value;
+  const textVal = textInput.value.trim();
+  if (!textVal || !activeDetailDateKey) return;
+
   if (!rdvs[activeDetailDateKey]) rdvs[activeDetailDateKey] = [];
-  rdvs[activeDetailDateKey].push(val);
-  input.value = '';
+  rdvs[activeDetailDateKey].push({ time: timeVal, text: textVal });
+
+  timeInput.value = '';
+  textInput.value = '';
   save();
   renderDayDetailContent();
   renderCalendar();
@@ -295,7 +332,7 @@ document.getElementById('closeDayDetailBtn').onclick = () => {
   document.getElementById('dayDetailModal').classList.remove('open');
 };
 
-/* --- POP-UP 2 : VUE TO-DO DU JOUR --- */
+/* --- POP-UP 2 : VUE TO-DO AVEC CHANGEMENT DE DATE --- */
 document.getElementById('openAddTaskBtn').onclick = () => {
   const todayKey = new Date().toISOString().split('T')[0];
   openTodoModal(todayKey);
@@ -307,12 +344,28 @@ function openTodoModal(dateKey) {
   const dateObj = new Date(y, m - 1, d);
 
   document.getElementById('todoDateTitle').textContent = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(dateObj);
-  document.getElementById('todoDateSubtitle').textContent = `Tâches prévues pour le ${dateKey}`;
+  document.getElementById('todoHeaderDatePicker').value = dateKey;
   document.getElementById('todoDateInput').value = dateKey;
 
   renderTodoItems();
   document.getElementById('todoModal').classList.add('open');
 }
+
+// Changement de date directement depuis l'en-tête du pop-up To-Do
+document.getElementById('todoHeaderDatePicker').onchange = (e) => {
+  if (e.target.value) openTodoModal(e.target.value);
+};
+
+function shiftTodoDate(daysOffset) {
+  if (!activeTodoDateKey) return;
+  const [y, m, d] = activeTodoDateKey.split('-').map(Number);
+  const dt = new Date(y, m - 1, d + daysOffset);
+  const nextKey = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+  openTodoModal(nextKey);
+}
+
+document.getElementById('todoPrevDayBtn').onclick = () => shiftTodoDate(-1);
+document.getElementById('todoNextDayBtn').onclick = () => shiftTodoDate(1);
 
 function renderTodoItems() {
   const container = document.getElementById('todoItemsList');
