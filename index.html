@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mon Planning</title>
-  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 
@@ -24,10 +24,10 @@
     </div>
   </header>
 
-  <!-- Panneau caché par défaut : s'ouvre uniquement quand on clique sur "Modifier statuts" -->
+  <!-- Panneau d'édition des statuts et de leurs couleurs -->
   <section class="toolbar" id="statusToolbar" style="display: none;">
     <div class="toolbar-header">
-      <h2>Mode édition : touchez un statut puis touchez les jours</h2>
+      <h2>Touchez un statut pour colorier • Touchez sa pastille pour changer sa couleur</h2>
       <button type="button" id="doneEditStatusBtn" class="primary">✓ Terminer</button>
     </div>
     <div class="status-list" id="statusList"></div>
@@ -51,7 +51,7 @@
     <div class="summary-list" id="summaryList"></div>
   </section>
 
-  <!-- Pop-up 1 : Détails du jour (RDV + lien Todo-list) -->
+  <!-- Pop-up 1 : Détails du jour (RDV avec heure/minutes + lien Todo-list) -->
   <div class="modal-backdrop" id="dayDetailModal">
     <div class="modal">
       <div class="modal-top-bar">
@@ -63,7 +63,8 @@
         <h4>📅 Rendez-vous (RDV)</h4>
         <div class="item-list" id="modalRdvList"></div>
         <form id="addRdvForm" class="inline-form">
-          <input type="text" id="newRdvInput" placeholder="Ajouter un RDV (ex: 14:00 Clinique)..." required>
+          <input type="time" id="newRdvTime" class="time-input" aria-label="Heure du rendez-vous">
+          <input type="text" id="newRdvInput" placeholder="Libellé (ex: Dr petit)..." required>
           <button type="submit" class="primary">+</button>
         </form>
       </div>
@@ -83,14 +84,18 @@
     </div>
   </div>
 
-  <!-- Pop-up 2 : Vue To-Do du jour & Saisie avec récurrence -->
+  <!-- Pop-up 2 : Vue To-Do avec sélecteur de date en haut -->
   <div class="modal-backdrop" id="todoModal">
     <div class="modal modal-todo-dark">
       <div class="todo-header">
         <button type="button" id="closeTodoBtn" class="icon-btn">←</button>
-        <div>
+        <div class="todo-header-info">
           <h3 id="todoDateTitle">Tâches du jour</h3>
-          <span id="todoDateSubtitle" class="todo-subtitle"></span>
+          <div class="todo-date-nav">
+            <button type="button" id="todoPrevDayBtn" class="mini-nav-btn" aria-label="Jour précédent">◀</button>
+            <input type="date" id="todoHeaderDatePicker" class="header-date-picker" aria-label="Choisir une date">
+            <button type="button" id="todoNextDayBtn" class="mini-nav-btn" aria-label="Jour suivant">▶</button>
+          </div>
         </div>
       </div>
 
@@ -113,6 +118,6 @@
     </div>
   </div>
 
-  <script src="script.js?v=4"></script>
+  <script src="script.js?v=5"></script>
 </body>
 </html>
