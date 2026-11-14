@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mon Planning</title>
-  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 
@@ -16,6 +16,7 @@
       <button id="todayBtn">Aujourd'hui</button>
     </div>
     <div class="backup-actions">
+      <button id="toggleEditStatusBtn" class="edit-mode-btn">🎨 Modifier statuts</button>
       <button id="openAddTaskBtn" class="primary">+ Tâche To-Do</button>
       <button id="exportBtn">Exporter</button>
       <button id="importBtn">Importer</button>
@@ -23,9 +24,11 @@
     </div>
   </header>
 
-  <section class="toolbar">
+  <!-- Panneau caché par défaut : s'ouvre uniquement quand on clique sur "Modifier statuts" -->
+  <section class="toolbar" id="statusToolbar" style="display: none;">
     <div class="toolbar-header">
-      <h2>1. Choisissez un mode puis cliquez sur un jour</h2>
+      <h2>Mode édition : touchez un statut puis touchez les jours</h2>
+      <button type="button" id="doneEditStatusBtn" class="primary">✓ Terminer</button>
     </div>
     <div class="status-list" id="statusList"></div>
 
@@ -110,6 +113,6 @@
     </div>
   </div>
 
-  <script src="script.js?v=3"></script>
+  <script src="script.js?v=4"></script>
 </body>
 </html>
