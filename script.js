@@ -12,8 +12,11 @@ let events = JSON.parse(localStorage.getItem('planning_events')) || {};
 let rdvs = JSON.parse(localStorage.getItem('planning_rdvs')) || {};
 let todos = JSON.parse(localStorage.getItem('planning_todos')) || [];
 
-// Par défaut sur 'DETAILS' pour ouvrir le pop-up de la journée au clic
-let selectedTool = 'DETAILS';
+// false = clic sur une date ouvre le pop-up (RDV + Todo-list)
+// true = clic sur une date applique le statut sélectionné
+let isEditingStatus = false;
+let selectedStatusId = statuses.length > 0 ? statuses[0].id : 'CLEAR';
+
 let currentDate = new Date();
 let activeDetailDateKey = null;
 let activeTodoDateKey = null;
@@ -32,31 +35,39 @@ const hexToRgba = (hex, alpha) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
+/* --- GESTION DU MODE ÉDITION DES STATUTS --- */
+const toggleEditStatusBtn = document.getElementById('toggleEditStatusBtn');
+const statusToolbar = document.getElementById('statusToolbar');
+const doneEditStatusBtn = document.getElementById('doneEditStatusBtn');
+
+function setEditStatusMode(active) {
+  isEditingStatus = active;
+  statusToolbar.style.display = active ? 'block' : 'none';
+  toggleEditStatusBtn.classList.toggle('active', active);
+  toggleEditStatusBtn.textContent = active ? '🎨 Édition en cours' : '🎨 Modifier statuts';
+  if (active && !selectedStatusId && statuses.length > 0) {
+    selectedStatusId = statuses[0].id;
+  }
+  renderStatuses();
+}
+
+toggleEditStatusBtn.onclick = () => setEditStatusMode(!isEditingStatus);
+doneEditStatusBtn.onclick = () => setEditStatusMode(false);
+
 function renderStatuses() {
   const container = document.getElementById('statusList');
   container.innerHTML = '';
 
-  // Mode Consultation / Détails (RDV + Todo-list)
-  const detailsPill = document.createElement('div');
-  detailsPill.className = `status-pill ${selectedTool === 'DETAILS' ? 'active' : ''}`;
-  detailsPill.style.backgroundColor = '#ffffff';
-  detailsPill.style.border = selectedTool === 'DETAILS' ? '2px solid #1e293b' : '1px solid #cbd5e1';
-  detailsPill.innerHTML = `<span>🔍 Détails / RDV</span>`;
-  detailsPill.onclick = () => { selectedTool = 'DETAILS'; renderStatuses(); };
-  container.appendChild(detailsPill);
-
-  // Mode Effacer statut
   const clearPill = document.createElement('div');
-  clearPill.className = `status-pill ${selectedTool === 'CLEAR' ? 'active' : ''}`;
+  clearPill.className = `status-pill ${selectedStatusId === 'CLEAR' ? 'active' : ''}`;
   clearPill.style.backgroundColor = '#f1f5f9';
   clearPill.innerHTML = `<span>Effacer</span>`;
-  clearPill.onclick = () => { selectedTool = 'CLEAR'; renderStatuses(); };
+  clearPill.onclick = () => { selectedStatusId = 'CLEAR'; renderStatuses(); };
   container.appendChild(clearPill);
 
-  // Modes Statuts colorés
   statuses.forEach(status => {
     const pill = document.createElement('div');
-    pill.className = `status-pill ${selectedTool === status.id ? 'active' : ''}`;
+    pill.className = `status-pill ${selectedStatusId === status.id ? 'active' : ''}`;
     pill.style.backgroundColor = hexToRgba(status.color, 0.22);
     pill.style.color = status.color;
 
@@ -69,12 +80,12 @@ function renderStatuses() {
     pill.onclick = (e) => {
       if (e.target.classList.contains('delete-status')) {
         statuses = statuses.filter(s => s.id !== status.id);
-        if (selectedTool === status.id) selectedTool = 'DETAILS';
+        if (selectedStatusId === status.id) selectedStatusId = statuses[0]?.id || 'CLEAR';
         save();
         renderStatuses();
         renderCalendar();
       } else {
-        selectedTool = status.id;
+        selectedStatusId = status.id;
         renderStatuses();
       }
     };
@@ -176,10 +187,6 @@ function renderCalendar() {
       const badge = document.createElement('div');
       badge.className = `todo-badge ${doneCount === dayTodos.length ? 'all-done' : ''}`;
       badge.textContent = `☑️ ${doneCount}/${dayTodos.length} tâche${dayTodos.length > 1 ? 's' : ''}`;
-      badge.onclick = (e) => {
-        e.stopPropagation();
-        openTodoModal(dateKey);
-      };
       bottomDiv.appendChild(badge);
     }
 
@@ -199,18 +206,21 @@ function renderCalendar() {
 
     cell.appendChild(bottomDiv);
 
+    // Clic n'importe où sur la case du jour
     cell.onclick = () => {
-      if (selectedTool === 'DETAILS') {
-        openDayDetailModal(dateKey, dateObj);
-        return;
-      }
-      if (selectedTool === 'CLEAR' || events[dateKey] === selectedTool) {
-        delete events[dateKey];
+      if (isEditingStatus) {
+        // Mode modification des statuts activé -> applique la couleur d'un toucher
+        if (selectedStatusId === 'CLEAR' || events[dateKey] === selectedStatusId) {
+          delete events[dateKey];
+        } else {
+          events[dateKey] = selectedStatusId;
+        }
+        save();
+        renderCalendar();
       } else {
-        events[dateKey] = selectedTool;
+        // Mode normal -> ouvre le pop-up RDV + Todo-list de cette date
+        openDayDetailModal(dateKey, dateObj);
       }
-      save();
-      renderCalendar();
     };
 
     grid.appendChild(cell);
@@ -230,7 +240,6 @@ function openDayDetailModal(dateKey, dateObj) {
 function renderDayDetailContent() {
   if (!activeDetailDateKey) return;
 
-  // 1. Affichage des RDV
   const list = document.getElementById('modalRdvList');
   list.innerHTML = '';
   const dayRdvs = rdvs[activeDetailDateKey] || [];
@@ -253,7 +262,6 @@ function renderDayDetailContent() {
     });
   }
 
-  // 2. Compteur de la Todo-list (ex: 0/5)
   const [y, m, d] = activeDetailDateKey.split('-').map(Number);
   const dateObj = new Date(y, m - 1, d);
   const dayTodos = getTodosForDate(dateObj, activeDetailDateKey);
@@ -277,7 +285,6 @@ document.getElementById('addRdvForm').onsubmit = (e) => {
   renderCalendar();
 };
 
-// Clic sur "Todo-list (0/5)" dans le Pop-up 1 -> ouvre le Pop-up 2
 document.getElementById('openTodoFromDetailBtn').onclick = () => {
   if (activeDetailDateKey) {
     openTodoModal(activeDetailDateKey);
@@ -320,7 +327,6 @@ function renderTodoItems() {
     return;
   }
 
-  // Tri : 1) Tâches NON faites en haut, tâches faites en bas | 2) Étoilées en haut
   const sortedTodos = [...dayTodos].sort((a, b) => {
     const aDone = (a.completedDates || []).includes(activeTodoDateKey) ? 1 : 0;
     const bDone = (b.completedDates || []).includes(activeTodoDateKey) ? 1 : 0;
@@ -433,7 +439,7 @@ document.getElementById('addStatusForm').onsubmit = (e) => {
     color: colorInput.value
   };
   statuses.push(newStatus);
-  selectedTool = newStatus.id;
+  selectedStatusId = newStatus.id;
   nameInput.value = '';
   save();
   renderStatuses();
