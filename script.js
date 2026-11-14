@@ -5,24 +5,23 @@ const DEFAULT_STATUSES = [
   { id: 'reserve', name: 'Réserve', color: '#ea580c' }
 ];
 
-const WEEKDAYS_FR = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+const WEEKDAYS_FR = ['dimanches', 'lundis', 'mardis', 'mercredis', 'jeudis', 'vendredis', 'samedis'];
 
 let statuses = JSON.parse(localStorage.getItem('planning_statuses')) || DEFAULT_STATUSES;
 let events = JSON.parse(localStorage.getItem('planning_events')) || {};
 let rdvs = JSON.parse(localStorage.getItem('planning_rdvs')) || {};
-let todoLists = JSON.parse(localStorage.getItem('planning_todolists')) || [];
+let todos = JSON.parse(localStorage.getItem('planning_todos')) || [];
 
 let selectedTool = statuses.length > 0 ? statuses[0].id : 'RDV';
 let currentDate = new Date();
 let activeRdvDate = null;
-let activeTodoListId = null;
 let activeTodoDateKey = null;
 
 const save = () => {
   localStorage.setItem('planning_statuses', JSON.stringify(statuses));
   localStorage.setItem('planning_events', JSON.stringify(events));
   localStorage.setItem('planning_rdvs', JSON.stringify(rdvs));
-  localStorage.setItem('planning_todolists', JSON.stringify(todoLists));
+  localStorage.setItem('planning_todos', JSON.stringify(todos));
 };
 
 const hexToRgba = (hex, alpha) => {
@@ -36,7 +35,6 @@ function renderStatuses() {
   const container = document.getElementById('statusList');
   container.innerHTML = '';
 
-  // Outil RDV
   const rdvPill = document.createElement('div');
   rdvPill.className = `status-pill ${selectedTool === 'RDV' ? 'active' : ''}`;
   rdvPill.style.backgroundColor = '#ffffff';
@@ -45,7 +43,6 @@ function renderStatuses() {
   rdvPill.onclick = () => { selectedTool = 'RDV'; renderStatuses(); };
   container.appendChild(rdvPill);
 
-  // Outil Effacer statut
   const clearPill = document.createElement('div');
   clearPill.className = `status-pill ${selectedTool === 'CLEAR' ? 'active' : ''}`;
   clearPill.style.backgroundColor = '#f1f5f9';
@@ -81,16 +78,27 @@ function renderStatuses() {
   });
 }
 
-function getListsForDate(dateObj, dateKey) {
-  const dayOfWeek = dateObj.getDay(); // 0 = Dim, 1 = Lun...
+// Récupère toutes les tâches (ponctuelles + récurrentes) applicables à une date donnée
+function getTodosForDate(dateObj, dateKey) {
+  const dayOfWeek = dateObj.getDay();
   const dayOfMonth = dateObj.getDate();
 
-  return todoLists.filter(list => {
-    if (list.recurrence === 'weekly') return Number(list.weekday) === dayOfWeek;
-    if (list.recurrence === 'monthly') return Number(list.monthDay) === dayOfMonth;
-    if (list.recurrence === 'once') return list.exactDate === dateKey;
+  return todos.filter(task => {
+    // Ne pas afficher une tâche récurrente avant sa date de création/début
+    if (task.startDate && dateKey < task.startDate) return false;
+
+    if (task.recurrence === 'once') return task.startDate === dateKey;
+    if (task.recurrence === 'weekly') return task.weekday === dayOfWeek;
+    if (task.recurrence === 'monthly') return task.monthDay === dayOfMonth;
     return false;
   });
+}
+
+function getRecurrenceText(task) {
+  if (task.recurrence === 'once') return `Le ${task.startDate}`;
+  if (task.recurrence === 'weekly') return `Tous les ${WEEKDAYS_FR[task.weekday]}`;
+  if (task.recurrence === 'monthly') return `Le ${task.monthDay} de chaque mois`;
+  return '';
 }
 
 function renderSummary(year, month, daysInMonth) {
@@ -152,30 +160,29 @@ function renderCalendar() {
       statusTextHtml = `<span class="day-status-text" style="color:${statusObj.color};">${statusObj.name}</span>`;
     }
 
-    // Header de la case (Chiffre + statut à droite sans cube)
     const headerDiv = document.createElement('div');
     headerDiv.className = 'day-header';
     headerDiv.innerHTML = `<span class="day-number">${day}</span>${statusTextHtml}`;
     cell.appendChild(headerDiv);
 
-    // Bas de la case (Badges Listes To-Do + RDV)
     const bottomDiv = document.createElement('div');
     bottomDiv.className = 'day-bottom';
 
-    // 1. Listes To-Do affectées à ce jour
-    const matchingLists = getListsForDate(dateObj, dateKey);
-    matchingLists.forEach(list => {
+    // 1. Tâches To-Do du jour (un bloc cliquable qui ouvre la liste du jour)
+    const dayTodos = getTodosForDate(dateObj, dateKey);
+    if (dayTodos.length > 0) {
+      const doneCount = dayTodos.filter(t => (t.completedDates || []).includes(dateKey)).length;
       const badge = document.createElement('div');
-      badge.className = 'todo-list-badge';
-      badge.textContent = `📋 ${list.name}`;
+      badge.className = `todo-badge ${doneCount === dayTodos.length ? 'all-done' : ''}`;
+      badge.textContent = `☑️ ${doneCount}/${dayTodos.length} tâche${dayTodos.length > 1 ? 's' : ''}`;
       badge.onclick = (e) => {
-        e.stopPropagation(); // Empêche de changer le statut de la journée
-        openTodoDetailModal(list.id, dateKey);
+        e.stopPropagation();
+        openTodoModal(dateKey);
       };
       bottomDiv.appendChild(badge);
-    });
+    }
 
-    // 2. Rendez-vous (RDV) ponctuels
+    // 2. Rendez-vous (RDV) ponctuels en blanc
     const dayRdvs = rdvs[dateKey] || [];
     dayRdvs.slice(0, 2).forEach(r => {
       const pill = document.createElement('div');
@@ -192,7 +199,6 @@ function renderCalendar() {
 
     cell.appendChild(bottomDiv);
 
-    // Clic sur le fond de la case
     cell.onclick = () => {
       if (selectedTool === 'RDV') {
         openRdvModal(dateKey, dateObj);
@@ -262,181 +268,129 @@ document.getElementById('addRdvForm').onsubmit = (e) => {
 
 document.getElementById('closeRdvModalBtn').onclick = () => document.getElementById('rdvModal').classList.remove('open');
 
-/* --- GESTIONNAIRE DES LISTES TO-DO --- */
-const recTypeSelect = document.getElementById('listRecurrenceType');
-const weekdaySelect = document.getElementById('listWeekdaySelect');
-const monthDayInput = document.getElementById('listMonthDayInput');
-const exactDateInput = document.getElementById('listExactDateInput');
-
-recTypeSelect.onchange = () => {
-  weekdaySelect.style.display = recTypeSelect.value === 'weekly' ? 'block' : 'none';
-  monthDayInput.style.display = recTypeSelect.value === 'monthly' ? 'block' : 'none';
-  exactDateInput.style.display = recTypeSelect.value === 'once' ? 'block' : 'none';
+/* --- GESTION DES TÂCHES TO-DO (PONCTUELLES & RÉCURRENTES) --- */
+document.getElementById('openAddTaskBtn').onclick = () => {
+  const todayKey = new Date().toISOString().split('T')[0];
+  openTodoModal(todayKey);
 };
 
-document.getElementById('manageListsBtn').onclick = () => {
-  renderSavedLists();
-  document.getElementById('listsManagerModal').classList.add('open');
-};
-
-document.getElementById('closeListsManagerBtn').onclick = () => {
-  document.getElementById('listsManagerModal').classList.remove('open');
-};
-
-function getRecurrenceLabel(list) {
-  if (list.recurrence === 'weekly') return `Tous les ${WEEKDAYS_FR[list.weekday]}s`;
-  if (list.recurrence === 'monthly') return `Le ${list.monthDay} de chaque mois`;
-  if (list.recurrence === 'once') return `Le ${list.exactDate}`;
-  return '';
-}
-
-function renderSavedLists() {
-  const container = document.getElementById('savedListsContainer');
-  container.innerHTML = '';
-
-  if (todoLists.length === 0) {
-    container.innerHTML = '<p style="color:#64748b; font-size:0.85rem;">Aucune liste créée. Créez votre première liste ci-dessus.</p>';
-    return;
-  }
-
-  todoLists.forEach(list => {
-    const card = document.createElement('div');
-    card.className = 'saved-list-card';
-    card.innerHTML = `
-      <div class="saved-list-info">
-        <strong>📋 ${list.name}</strong>
-        <span>${getRecurrenceLabel(list)} • ${list.items.length} tâche(s)</span>
-      </div>
-      <button type="button" class="del-list-btn" style="color:#dc2626;">Suppr.</button>
-    `;
-    card.querySelector('.saved-list-info').onclick = () => {
-      document.getElementById('listsManagerModal').classList.remove('open');
-      openTodoDetailModal(list.id, new Date().toISOString().split('T')[0]);
-    };
-    card.querySelector('.del-list-btn').onclick = () => {
-      todoLists = todoLists.filter(l => l.id !== list.id);
-      save();
-      renderSavedLists();
-      renderCalendar();
-    };
-    container.appendChild(card);
-  });
-}
-
-document.getElementById('createListForm').onsubmit = (e) => {
-  e.preventDefault();
-  const name = document.getElementById('listNameInput').value.trim();
-  const recurrence = recTypeSelect.value;
-  if (!name) return;
-
-  const newList = {
-    id: 'list_' + Date.now(),
-    name,
-    recurrence,
-    weekday: Number(weekdaySelect.value),
-    monthDay: Number(monthDayInput.value),
-    exactDate: exactDateInput.value,
-    items: [],
-    completedByDate: {} // Mémorise les cases cochées par date précise
-  };
-
-  todoLists.push(newList);
-  document.getElementById('listNameInput').value = '';
-  save();
-  renderSavedLists();
-  renderCalendar();
-
-  // Ouvre directement la liste pour y ajouter les tâches
-  document.getElementById('listsManagerModal').classList.remove('open');
-  openTodoDetailModal(newList.id, new Date().toISOString().split('T')[0]);
-};
-
-/* --- VUE DÉTAILLÉE D'UNE LISTE TO-DO (STYLE MICROSOFT TO DO) --- */
-function openTodoDetailModal(listId, dateKey) {
-  activeTodoListId = listId;
+function openTodoModal(dateKey) {
   activeTodoDateKey = dateKey;
-  const list = todoLists.find(l => l.id === listId);
-  if (!list) return;
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const dateObj = new Date(y, m - 1, d);
 
-  document.getElementById('todoDetailTitle').textContent = list.name;
-  document.getElementById('todoDetailSubtitle').textContent = `${getRecurrenceLabel(list)} (Séance du ${dateKey})`;
+  document.getElementById('todoDateTitle').textContent = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(dateObj);
+  document.getElementById('todoDateSubtitle').textContent = `Tâches prévues pour le ${dateKey}`;
+  document.getElementById('todoDateInput').value = dateKey;
+
   renderTodoItems();
-  document.getElementById('todoDetailModal').classList.add('open');
+  document.getElementById('todoModal').classList.add('open');
 }
 
 function renderTodoItems() {
   const container = document.getElementById('todoItemsList');
   container.innerHTML = '';
-  const list = todoLists.find(l => l.id === activeTodoListId);
-  if (!list) return;
 
-  if (!list.completedByDate) list.completedByDate = {};
-  const completedIds = list.completedByDate[activeTodoDateKey] || [];
+  const [y, m, d] = activeTodoDateKey.split('-').map(Number);
+  const dateObj = new Date(y, m - 1, d);
+  const dayTodos = getTodosForDate(dateObj, activeTodoDateKey);
 
-  // Trie pour mettre les tâches importantes (étoile) en haut, comme Microsoft To Do
-  const sortedItems = [...list.items].sort((a, b) => (b.starred ? 1 : 0) - (a.starred ? 1 : 0));
+  if (dayTodos.length === 0) {
+    container.innerHTML = '<p style="color:#9ca3af; font-size:0.9rem; text-align:center; margin-top:20px;">Aucune tâche prévue à cette date.<br>Ajoutez-en une ci-dessous !</p>';
+    return;
+  }
 
-  sortedItems.forEach(item => {
-    const isDone = completedIds.includes(item.id);
+  // Trie pour afficher les tâches importantes (étoile) en premier
+  const sortedTodos = [...dayTodos].sort((a, b) => (b.starred ? 1 : 0) - (a.starred ? 1 : 0));
+
+  sortedTodos.forEach(task => {
+    const completedDates = task.completedDates || [];
+    const isDone = completedDates.includes(activeTodoDateKey);
+
     const card = document.createElement('div');
     card.className = `todo-task-card ${isDone ? 'done' : ''}`;
 
     card.innerHTML = `
       <div class="todo-check">${isDone ? '✓' : ''}</div>
-      <div class="todo-task-text">${item.text}</div>
-      <button type="button" class="todo-star ${item.starred ? 'starred' : ''}">${item.starred ? '★' : '☆'}</button>
-      <button type="button" class="todo-del" title="Supprimer">✕</button>
+      <div class="todo-task-info">
+        <div class="todo-task-text">${task.text}</div>
+        <span class="todo-task-rec">${getRecurrenceText(task)}</span>
+      </div>
+      <button type="button" class="todo-star ${task.starred ? 'starred' : ''}">${task.starred ? '★' : '☆'}</button>
+      <button type="button" class="todo-del" title="Supprimer cette tâche">✕</button>
     `;
 
-    // Cocher / décocher la tâche pour cette date
+    // Cocher / décocher pour cette date précise
     card.querySelector('.todo-check').onclick = () => {
-      const currentDone = list.completedByDate[activeTodoDateKey] || [];
-      if (currentDone.includes(item.id)) {
-        list.completedByDate[activeTodoDateKey] = currentDone.filter(id => id !== item.id);
+      if (!task.completedDates) task.completedDates = [];
+      if (task.completedDates.includes(activeTodoDateKey)) {
+        task.completedDates = task.completedDates.filter(dt => dt !== activeTodoDateKey);
       } else {
-        list.completedByDate[activeTodoDateKey] = [...currentDone, item.id];
+        task.completedDates.push(activeTodoDateKey);
       }
       save();
       renderTodoItems();
+      renderCalendar();
     };
 
     // Étoile d'importance
     card.querySelector('.todo-star').onclick = () => {
-      item.starred = !item.starred;
+      task.starred = !task.starred;
       save();
       renderTodoItems();
     };
 
-    // Supprimer définitivement la tâche de la liste
+    // Supprimer la tâche
     card.querySelector('.todo-del').onclick = () => {
-      list.items = list.items.filter(i => i.id !== item.id);
+      todos = todos.filter(t => t.id !== task.id);
       save();
       renderTodoItems();
+      renderCalendar();
     };
 
     container.appendChild(card);
   });
 }
 
-document.getElementById('addTodoTaskForm').onsubmit = (e) => {
+document.getElementById('addTodoForm').onsubmit = (e) => {
   e.preventDefault();
-  const input = document.getElementById('newTodoTaskInput');
-  const text = input.value.trim();
-  const list = todoLists.find(l => l.id === activeTodoListId);
-  if (!text || !list) return;
+  const textInput = document.getElementById('newTodoTextInput');
+  const recSelect = document.getElementById('todoRecurrenceType');
+  const dateInput = document.getElementById('todoDateInput');
 
-  list.items.push({
-    id: 'task_' + Date.now(),
+  const text = textInput.value.trim();
+  const chosenDate = dateInput.value;
+  if (!text || !chosenDate) return;
+
+  const [y, m, d] = chosenDate.split('-').map(Number);
+  const dateObj = new Date(y, m - 1, d);
+
+  const newTask = {
+    id: 'todo_' + Date.now(),
     text,
-    starred: false
-  });
-  input.value = '';
+    recurrence: recSelect.value, // 'once', 'weekly', 'monthly'
+    startDate: chosenDate,
+    weekday: dateObj.getDay(),   // Ex: tous les mardis si la date choisie est un mardi
+    monthDay: dateObj.getDate(), // Ex: le 14 de chaque mois si la date choisie est un 14
+    starred: false,
+    completedDates: []
+  };
+
+  todos.push(newTask);
+  textInput.value = '';
   save();
-  renderTodoItems();
+
+  // Si l'utilisateur a saisi une autre date que celle affichée, on bascule sur cette date
+  if (chosenDate !== activeTodoDateKey) {
+    openTodoModal(chosenDate);
+  } else {
+    renderTodoItems();
+  }
+  renderCalendar();
 };
 
-document.getElementById('backFromTodoBtn').onclick = () => {
-  document.getElementById('todoDetailModal').classList.remove('open');
+document.getElementById('closeTodoBtn').onclick = () => {
+  document.getElementById('todoModal').classList.remove('open');
 };
 
 /* --- NAVIGATION & SAUVEGARDE --- */
@@ -462,7 +416,7 @@ document.getElementById('addStatusForm').onsubmit = (e) => {
 };
 
 document.getElementById('exportBtn').onclick = () => {
-  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ statuses, events, rdvs, todoLists }, null, 2));
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ statuses, events, rdvs, todos }, null, 2));
   const dlAnchor = document.createElement('a');
   dlAnchor.setAttribute("href", dataStr);
   dlAnchor.setAttribute("download", `planning-${new Date().toISOString().slice(0,10)}.json`);
@@ -481,7 +435,7 @@ document.getElementById('importFile').onchange = (e) => {
         statuses = data.statuses;
         events = data.events;
         rdvs = data.rdvs || {};
-        todoLists = data.todoLists || [];
+        todos = data.todos || [];
         save();
         renderStatuses();
         renderCalendar();
