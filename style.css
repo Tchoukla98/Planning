@@ -53,12 +53,10 @@ button.primary { background: var(--primary); color: white; border-color: var(--p
 /* Zone basse de la case : To-Do + RDV */
 .day-bottom { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
 
-/* Badge cliquable pour les tâches To-Do du jour */
 .todo-badge { background: #1e293b; color: #93c5fd; font-size: 0.66rem; font-weight: 700; padding: 2px 5px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
 .todo-badge:hover { background: #0f172a; }
 .todo-badge.all-done { background: #14532d; color: #86efac; }
 
-/* Pilule blanche pour les RDV */
 .rdv-pill { background: #ffffff; color: #0f172a; border: 1px solid rgba(0,0,0,0.18); font-size: 0.66rem; font-weight: 600; padding: 1px 4px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Récapitulatif mensuel */
@@ -72,16 +70,33 @@ button.primary { background: var(--primary); color: white; border-color: var(--p
 /* Modales */
 .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65); align-items: center; justify-content: center; padding: 12px; z-index: 50; }
 .modal-backdrop.open { display: flex; }
-.modal { background: #ffffff; border-radius: 14px; width: 100%; max-width: 420px; padding: 18px; box-shadow: 0 10px 25px rgba(0,0,0,0.25); max-height: 90vh; overflow-y: auto; }
-.modal h3 { font-size: 1.1rem; text-transform: capitalize; }
-.item-list { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
+.modal { background: #ffffff; border-radius: 14px; width: 100%; max-width: 430px; padding: 18px; box-shadow: 0 10px 25px rgba(0,0,0,0.25); max-height: 90vh; overflow-y: auto; }
+.modal-top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.modal h3 { font-size: 1.15rem; text-transform: capitalize; }
+
+/* Sections du Pop-up 1 (Détails du jour) */
+.detail-section { margin-bottom: 16px; }
+.detail-section h4 { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
+.item-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
 .item-row { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 8px 10px; border-radius: 8px; font-size: 0.9rem; font-weight: 500; }
 .item-row button { padding: 3px 8px; color: #dc2626; border-color: #fecaca; background: #fef2f2; }
-.inline-form { display: flex; gap: 8px; margin-bottom: 12px; }
+.inline-form { display: flex; gap: 8px; }
 .inline-form input { flex: 1; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; }
-.modal-footer { text-align: right; }
 
-/* Modale To-Do Dark Mode */
+/* Carte cliquable Todo-list dans le Pop-up 1 */
+.todo-link-section { margin-bottom: 0; padding-top: 14px; border-top: 1px solid var(--border); }
+.todo-summary-card { display: flex; justify-content: space-between; align-items: center; background: #1e293b; color: #ffffff; padding: 14px 16px; border-radius: 12px; cursor: pointer; transition: transform 0.1s, background 0.15s; }
+.todo-summary-card:hover { background: #0f172a; transform: scale(1.01); }
+.todo-summary-left { display: flex; flex-direction: column; gap: 2px; }
+.todo-summary-title { font-size: 1rem; font-weight: 700; color: #93c5fd; }
+.todo-summary-sub { font-size: 0.78rem; color: #cbd5e1; }
+.todo-summary-right { display: flex; align-items: center; gap: 10px; }
+.count-pill { background: #334155; color: #ffffff; font-weight: 700; font-size: 0.9rem; padding: 4px 10px; border-radius: 20px; }
+.count-pill.all-done { background: #15803d; color: #ffffff; }
+.arrow-right { color: #93c5fd; font-size: 0.9rem; }
+
+/* Pop-up 2 : Modale To-Do Dark Mode */
+#todoModal { z-index: 60; }
 .modal-todo-dark { background: #121212; color: #f3f4f6; max-width: 460px; height: 86vh; display: flex; flex-direction: column; padding: 16px; }
 .todo-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .icon-btn { background: transparent; border: none; color: #93c5fd; font-size: 1.4rem; padding: 4px 8px; }
@@ -103,7 +118,6 @@ button.primary { background: var(--primary); color: white; border-color: var(--p
 .todo-del { background: none; border: none; color: #6b7280; font-size: 0.9rem; padding: 2px 6px; }
 .todo-del:hover { color: #ef4444; background: transparent; }
 
-/* Panneau de saisie en bas de la modale To-Do */
 .todo-add-panel { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #262626; }
 .todo-add-panel input[type="text"] { width: 100%; background: #1e1e1e; border: 1px solid #333; color: #fff; padding: 10px 12px; border-radius: 10px; font-size: 0.95rem; }
 .todo-recurrence-row { display: flex; gap: 6px; }
