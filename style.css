@@ -38,22 +38,27 @@ button.primary { background: var(--primary); color: white; border-color: var(--p
 .weekdays { display: grid; grid-template-columns: repeat(7, 1fr); background: #f1f5f9; border-bottom: 1px solid var(--border); text-align: center; font-weight: 600; font-size: 0.8rem; color: var(--text-muted); padding: 10px 0; }
 .days-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
 
-.day-cell { min-height: 90px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 6px 5px; cursor: pointer; transition: filter 0.15s; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
+.day-cell { min-height: 94px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 5px 4px; cursor: pointer; transition: filter 0.15s; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; }
 .day-cell:nth-child(7n) { border-right: none; }
-.day-cell:hover { filter: brightness(0.96); }
+.day-cell:hover { filter: brightness(0.97); }
 .day-cell.empty { background: #fafafa; cursor: default; }
 .day-cell.empty:hover { filter: none; }
 
-/* Ligne du haut : chiffre à gauche + nom du statut directement à droite sans cube */
+/* Ligne du haut : chiffre + statut directement à droite sans cube */
 .day-header { display: flex; align-items: center; gap: 4px; width: 100%; overflow: hidden; }
 .day-number { font-weight: 700; font-size: 0.85rem; flex-shrink: 0; }
 .day-cell.today .day-number { background: var(--primary); color: #ffffff; border-radius: 50%; width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.78rem; }
+.day-status-text { font-size: 0.74rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.day-status-text { font-size: 0.75rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Zone basse de la case : Listes To-Do + RDV */
+.day-bottom { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
 
-/* Cubes / Pilules pour les tâches en bas de la case */
-.day-tasks { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
-.task-pill { background: #ffffff; color: #0f172a; border: 1px solid rgba(0,0,0,0.15); font-size: 0.68rem; font-weight: 600; padding: 2px 4px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Badge cliquable pour le nom d'une liste To-Do */
+.todo-list-badge { background: #1e293b; color: #93c5fd; font-size: 0.66rem; font-weight: 700; padding: 2px 5px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.todo-list-badge:hover { background: #0f172a; }
+
+/* Pilule blanche pour les RDV */
+.rdv-pill { background: #ffffff; color: #0f172a; border: 1px solid rgba(0,0,0,0.18); font-size: 0.66rem; font-weight: 600; padding: 1px 4px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Récapitulatif mensuel */
 .summary-box { background: var(--surface); padding: 14px; border-radius: 12px; border: 1px solid var(--border); }
@@ -61,30 +66,64 @@ button.primary { background: var(--primary); color: white; border-color: var(--p
 .summary-list { display: flex; flex-wrap: wrap; gap: 8px; }
 .summary-item { display: flex; align-items: center; gap: 6px; background: #f8fafc; border: 1px solid var(--border); padding: 6px 10px; border-radius: 8px; font-size: 0.85rem; }
 
-.backup-actions { display: flex; gap: 8px; }
+.backup-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 
-/* Modale des tâches */
-.modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); align-items: center; justify-content: center; padding: 16px; z-index: 50; }
+/* Modales générales */
+.modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65); align-items: center; justify-content: center; padding: 12px; z-index: 50; }
 .modal-backdrop.open { display: flex; }
-.modal { background: #ffffff; border-radius: 14px; width: 100%; max-width: 400px; padding: 18px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-.modal h3 { margin-bottom: 12px; font-size: 1.1rem; text-transform: capitalize; }
-.task-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; max-height: 200px; overflow-y: auto; }
-.task-item { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 8px 10px; border-radius: 8px; font-size: 0.9rem; font-weight: 500; }
-.task-item button { padding: 3px 8px; color: #dc2626; border-color: #fecaca; background: #fef2f2; }
-.task-form { display: flex; gap: 8px; margin-bottom: 12px; }
-.task-form input { flex: 1; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; }
+.modal { background: #ffffff; border-radius: 14px; width: 100%; max-width: 420px; padding: 18px; box-shadow: 0 10px 25px rgba(0,0,0,0.25); max-height: 90vh; overflow-y: auto; }
+.modal-large { max-width: 520px; }
+.modal-top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.modal h3 { font-size: 1.1rem; text-transform: capitalize; }
+.item-list { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
+.item-row { display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; padding: 8px 10px; border-radius: 8px; font-size: 0.9rem; font-weight: 500; }
+.item-row button { padding: 3px 8px; color: #dc2626; border-color: #fecaca; background: #fef2f2; }
+.inline-form { display: flex; gap: 8px; margin-bottom: 12px; }
+.inline-form input { flex: 1; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; }
 .modal-footer { text-align: right; }
+
+/* Formulaire création liste To-Do */
+.create-list-box { display: flex; flex-direction: column; gap: 8px; background: #f8fafc; padding: 12px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 14px; }
+.create-list-box input, .create-list-box select { padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; background: #fff; }
+.saved-lists-container { display: flex; flex-direction: column; gap: 8px; }
+.saved-list-card { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: #fff; gap: 8px; }
+.saved-list-info { flex: 1; cursor: pointer; }
+.saved-list-info strong { display: block; font-size: 0.95rem; color: var(--primary); }
+.saved-list-info span { font-size: 0.78rem; color: var(--text-muted); }
+
+/* Modale To-Do Dark Mode (style Microsoft To Do de votre capture) */
+.modal-todo-dark { background: #121212; color: #f3f4f6; max-width: 460px; height: 82vh; display: flex; flex-direction: column; padding: 16px; }
+.todo-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.icon-btn { background: transparent; border: none; color: #93c5fd; font-size: 1.4rem; padding: 4px 8px; }
+.icon-btn:hover { background: #1f2937; }
+#todoDetailTitle { color: #93c5fd; font-size: 1.35rem; text-transform: none; }
+.todo-subtitle { font-size: 0.8rem; color: #9ca3af; }
+
+.todo-items-scroll { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; }
+.todo-task-card { display: flex; align-items: center; gap: 12px; background: #1e1e1e; padding: 12px 14px; border-radius: 10px; }
+.todo-check { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #9ca3af; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; font-size: 0.8rem; color: #121212; }
+.todo-task-card.done .todo-check { background: #93c5fd; border-color: #93c5fd; }
+.todo-task-text { flex: 1; font-size: 0.95rem; line-height: 1.35; }
+.todo-task-card.done .todo-task-text { text-decoration: line-through; color: #6b7280; }
+.todo-star { background: none; border: none; font-size: 1.25rem; color: #6b7280; padding: 2px 4px; cursor: pointer; }
+.todo-star.starred { color: #60a5fa; }
+.todo-del { background: none; border: none; color: #6b7280; font-size: 0.9rem; padding: 2px 6px; }
+.todo-del:hover { color: #ef4444; background: transparent; }
+
+.todo-add-bar { display: flex; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #262626; }
+.todo-add-bar input { flex: 1; background: #1e1e1e; border: 1px solid #333; color: #fff; padding: 10px 14px; border-radius: 24px; font-size: 0.95rem; }
+.todo-add-btn { width: 42px; height: 42px; border-radius: 50%; background: #93c5fd; color: #0f172a; border: none; font-size: 1.5rem; display: flex; align-items: center; justify-content: center; }
 
 @media (max-width: 640px) {
   body { padding: 8px; }
   .nav-month { width: 100%; justify-content: space-between; }
   .nav-month h1 { font-size: 1.1rem; min-width: auto; }
   .backup-actions { width: 100%; }
-  .backup-actions button { flex: 1; }
-  .day-cell { min-height: 74px; padding: 4px 3px; }
+  .backup-actions button { flex: 1; padding: 7px 6px; font-size: 0.8rem; }
+  .day-cell { min-height: 78px; padding: 4px 2px; }
   .day-header { gap: 2px; }
   .day-number { font-size: 0.78rem; }
   .day-cell.today .day-number { width: 19px; height: 19px; font-size: 0.72rem; }
   .day-status-text { font-size: 0.62rem; }
-  .task-pill { font-size: 0.6rem; padding: 1px 3px; }
+  .todo-list-badge, .rdv-pill { font-size: 0.58rem; padding: 1px 3px; }
 }
