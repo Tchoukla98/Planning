@@ -169,3 +169,278 @@ function renderCalendar() {
     const dayTodos = getTodosForDate(dateObj, dateKey);
     if (dayTodos.length > 0) {
       const doneCount = dayTodos.filter(t => (t.completedDates || []).includes(dateKey)).length;
+      const badge = document.createElement('div');
+      badge.className = `todo-badge ${doneCount === dayTodos.length ? 'all-done' : ''}`;
+      badge.textContent = `☑️ ${doneCount}/${dayTodos.length} tâche${dayTodos.length > 1 ? 's' : ''}`;
+      badge.onclick = (e) => {
+        e.stopPropagation();
+        openTodoModal(dateKey);
+      };
+      bottomDiv.appendChild(badge);
+    }
+
+    const dayRdvs = rdvs[dateKey] || [];
+    dayRdvs.slice(0, 2).forEach(r => {
+      const pill = document.createElement('div');
+      pill.className = 'rdv-pill';
+      pill.textContent = r;
+      bottomDiv.appendChild(pill);
+    });
+    if (dayRdvs.length > 2) {
+      const more = document.createElement('div');
+      more.className = 'rdv-pill';
+      more.textContent = `+${dayRdvs.length - 2} RDV`;
+      bottomDiv.appendChild(more);
+    }
+
+    cell.appendChild(bottomDiv);
+
+    cell.onclick = () => {
+      if (selectedTool === 'RDV') {
+        openRdvModal(dateKey, dateObj);
+        return;
+      }
+      if (selectedTool === 'CLEAR' || events[dateKey] === selectedTool) {
+        delete events[dateKey];
+      } else {
+        events[dateKey] = selectedTool;
+      }
+      save();
+      renderCalendar();
+    };
+
+    grid.appendChild(cell);
+  }
+
+  renderSummary(year, month, daysInMonth);
+}
+
+/* --- GESTION DES RDV --- */
+function openRdvModal(dateKey, dateObj) {
+  activeRdvDate = dateKey;
+  document.getElementById('rdvDateTitle').textContent = 'RDV - ' + new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(dateObj);
+  renderModalRdvs();
+  document.getElementById('rdvModal').classList.add('open');
+  document.getElementById('newRdvInput').focus();
+}
+
+function renderModalRdvs() {
+  const list = document.getElementById('modalRdvList');
+  list.innerHTML = '';
+  const dayRdvs = rdvs[activeRdvDate] || [];
+
+  if (dayRdvs.length === 0) {
+    list.innerHTML = '<p style="color:#64748b; font-size:0.85rem;">Aucun rendez-vous ce jour.</p>';
+    return;
+  }
+
+  dayRdvs.forEach((text, idx) => {
+    const item = document.createElement('div');
+    item.className = 'item-row';
+    item.innerHTML = `<span>${text}</span><button type="button">Suppr.</button>`;
+    item.querySelector('button').onclick = () => {
+      rdvs[activeRdvDate].splice(idx, 1);
+      if (rdvs[activeRdvDate].length === 0) delete rdvs[activeRdvDate];
+      save();
+      renderModalRdvs();
+      renderCalendar();
+    };
+    list.appendChild(item);
+  });
+}
+
+document.getElementById('addRdvForm').onsubmit = (e) => {
+  e.preventDefault();
+  const input = document.getElementById('newRdvInput');
+  const val = input.value.trim();
+  if (!val || !activeRdvDate) return;
+  if (!rdvs[activeRdvDate]) rdvs[activeRdvDate] = [];
+  rdvs[activeRdvDate].push(val);
+  input.value = '';
+  save();
+  renderModalRdvs();
+  renderCalendar();
+};
+
+document.getElementById('closeRdvModalBtn').onclick = () => document.getElementById('rdvModal').classList.remove('open');
+
+/* --- GESTION DES TÂCHES TO-DO (PONCTUELLES & RÉCURRENTES) --- */
+document.getElementById('openAddTaskBtn').onclick = () => {
+  const todayKey = new Date().toISOString().split('T')[0];
+  openTodoModal(todayKey);
+};
+
+function openTodoModal(dateKey) {
+  activeTodoDateKey = dateKey;
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const dateObj = new Date(y, m - 1, d);
+
+  document.getElementById('todoDateTitle').textContent = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(dateObj);
+  document.getElementById('todoDateSubtitle').textContent = `Tâches prévues pour le ${dateKey}`;
+  document.getElementById('todoDateInput').value = dateKey;
+
+  renderTodoItems();
+  document.getElementById('todoModal').classList.add('open');
+}
+
+function renderTodoItems() {
+  const container = document.getElementById('todoItemsList');
+  container.innerHTML = '';
+
+  const [y, m, d] = activeTodoDateKey.split('-').map(Number);
+  const dateObj = new Date(y, m - 1, d);
+  const dayTodos = getTodosForDate(dateObj, activeTodoDateKey);
+
+  if (dayTodos.length === 0) {
+    container.innerHTML = '<p style="color:#9ca3af; font-size:0.9rem; text-align:center; margin-top:20px;">Aucune tâche prévue à cette date.<br>Ajoutez-en une ci-dessous !</p>';
+    return;
+  }
+
+  // Tri : 1) Tâches faites au-dessus des non-faites, 2) Tâches étoilées en priorité
+  const sortedTodos = [...dayTodos].sort((a, b) => {
+    const aDone = (a.completedDates || []).includes(activeTodoDateKey) ? 1 : 0;
+    const bDone = (b.completedDates || []).includes(activeTodoDateKey) ? 1 : 0;
+    if (bDone !== aDone) return bDone - aDone;
+    return (b.starred ? 1 : 0) - (a.starred ? 1 : 0);
+  });
+
+  sortedTodos.forEach(task => {
+    const completedDates = task.completedDates || [];
+    const isDone = completedDates.includes(activeTodoDateKey);
+
+    const card = document.createElement('div');
+    card.className = `todo-task-card ${isDone ? 'done' : ''}`;
+
+    card.innerHTML = `
+      <div class="todo-check">${isDone ? '✓' : ''}</div>
+      <div class="todo-task-info">
+        <div class="todo-task-text">${task.text}</div>
+        <span class="todo-task-rec">${getRecurrenceText(task)}</span>
+      </div>
+      <button type="button" class="todo-star ${task.starred ? 'starred' : ''}">${task.starred ? '★' : '☆'}</button>
+      <button type="button" class="todo-del" title="Supprimer cette tâche">✕</button>
+    `;
+
+    card.querySelector('.todo-check').onclick = () => {
+      if (!task.completedDates) task.completedDates = [];
+      if (task.completedDates.includes(activeTodoDateKey)) {
+        task.completedDates = task.completedDates.filter(dt => dt !== activeTodoDateKey);
+      } else {
+        task.completedDates.push(activeTodoDateKey);
+      }
+      save();
+      renderTodoItems();
+      renderCalendar();
+    };
+
+    card.querySelector('.todo-star').onclick = () => {
+      task.starred = !task.starred;
+      save();
+      renderTodoItems();
+    };
+
+    card.querySelector('.todo-del').onclick = () => {
+      todos = todos.filter(t => t.id !== task.id);
+      save();
+      renderTodoItems();
+      renderCalendar();
+    };
+
+    container.appendChild(card);
+  });
+}
+
+document.getElementById('addTodoForm').onsubmit = (e) => {
+  e.preventDefault();
+  const textInput = document.getElementById('newTodoTextInput');
+  const recSelect = document.getElementById('todoRecurrenceType');
+  const dateInput = document.getElementById('todoDateInput');
+
+  const text = textInput.value.trim();
+  const chosenDate = dateInput.value;
+  if (!text || !chosenDate) return;
+
+  const [y, m, d] = chosenDate.split('-').map(Number);
+  const dateObj = new Date(y, m - 1, d);
+
+  const newTask = {
+    id: 'todo_' + Date.now(),
+    text,
+    recurrence: recSelect.value,
+    startDate: chosenDate,
+    weekday: dateObj.getDay(),
+    monthDay: dateObj.getDate(),
+    starred: false,
+    completedDates: []
+  };
+
+  todos.push(newTask);
+  textInput.value = '';
+  save();
+
+  if (chosenDate !== activeTodoDateKey) {
+    openTodoModal(chosenDate);
+  } else {
+    renderTodoItems();
+  }
+  renderCalendar();
+};
+
+document.getElementById('closeTodoBtn').onclick = () => {
+  document.getElementById('todoModal').classList.remove('open');
+};
+
+/* --- NAVIGATION & SAUVEGARDE --- */
+document.getElementById('prevMonth').onclick = () => { currentDate.setMonth(currentDate.getMonth() - 1); renderCalendar(); };
+document.getElementById('nextMonth').onclick = () => { currentDate.setMonth(currentDate.getMonth() + 1); renderCalendar(); };
+document.getElementById('todayBtn').onclick = () => { currentDate = new Date(); renderCalendar(); };
+
+document.getElementById('addStatusForm').onsubmit = (e) => {
+  e.preventDefault();
+  const nameInput = document.getElementById('newStatusName');
+  const colorInput = document.getElementById('newStatusColor');
+  const newStatus = {
+    id: 'st_' + Date.now(),
+    name: nameInput.value.trim(),
+    color: colorInput.value
+  };
+  statuses.push(newStatus);
+  selectedTool = newStatus.id;
+  nameInput.value = '';
+  save();
+  renderStatuses();
+  renderCalendar();
+};
+
+document.getElementById('exportBtn').onclick = () => {
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ statuses, events, rdvs, todos }, null, 2));
+  const dlAnchor = document.createElement('a');
+  dlAnchor.setAttribute("href", dataStr);
+  dlAnchor.setAttribute("download", `planning-${new Date().toISOString().slice(0,10)}.json`);
+  dlAnchor.click();
+};
+
+document.getElementById('importBtn').onclick = () => document.getElementById('importFile').click();
+document.getElementById('importFile').onchange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    try {
+      const data = JSON.parse(event.target.result);
+      if (data.statuses && data.events) {
+        statuses = data.statuses;
+        events = data.events;
+        rdvs = data.rdvs || {};
+        todos = data.todos || [];
+        save();
+        renderStatuses();
+        renderCalendar();
+      }
+    } catch (err) { alert("Fichier JSON invalide."); }
+  };
+  reader.readAsText(file);
+};
+
+renderStatuses();
+renderCalendar();
