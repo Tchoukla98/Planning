@@ -1,59 +1,74 @@
 const DEFAULT_STATUSES = [
-  { id: 'bureau', name: 'Bureau', color: '#3b82f6' },
-  { id: 'teletravail', name: 'Télétravail', color: '#10b981' },
-  { id: 'conges', name: 'Congés', color: '#f59e0b' },
-  { id: 'repos', name: 'Repos / Férié', color: '#94a3b8' }
+  { id: 'garde', name: 'Garde', color: '#ef4444' },
+  { id: 'repos', name: 'Repos', color: '#7cb342' },
+  { id: 'palais', name: 'Palais', color: '#e91e63' },
+  { id: 'reserve', name: 'Réserve', color: '#fb8c00' }
 ];
 
 let statuses = JSON.parse(localStorage.getItem('planning_statuses')) || DEFAULT_STATUSES;
 let events = JSON.parse(localStorage.getItem('planning_events')) || {};
-let selectedStatusId = statuses.length > 0 ? statuses[0].id : null;
+let tasks = JSON.parse(localStorage.getItem('planning_tasks')) || {};
+let selectedTool = statuses.length > 0 ? statuses[0].id : 'TASK';
 let currentDate = new Date();
+let activeModalDate = null;
 
 const save = () => {
   localStorage.setItem('planning_statuses', JSON.stringify(statuses));
   localStorage.setItem('planning_events', JSON.stringify(events));
+  localStorage.setItem('planning_tasks', JSON.stringify(tasks));
 };
 
-const hexToRgba = (hex, alpha) => {
+// Détermine automatiquement si le texte doit être blanc ou noir selon la luminosité de la couleur
+const getContrastText = (hex) => {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.6 ? '#0f172a' : '#ffffff';
 };
 
 function renderStatuses() {
   const container = document.getElementById('statusList');
   container.innerHTML = '';
 
+  // Outil Tâche / Note
+  const taskPill = document.createElement('div');
+  taskPill.className = `status-pill ${selectedTool === 'TASK' ? 'active' : ''}`;
+  taskPill.style.backgroundColor = '#ffffff';
+  taskPill.style.border = selectedTool === 'TASK' ? '2px solid #0f172a' : '1px solid #cbd5e1';
+  taskPill.innerHTML = `<span>📝 Tâche</span>`;
+  taskPill.onclick = () => { selectedTool = 'TASK'; renderStatuses(); };
+  container.appendChild(taskPill);
+
+  // Outil Effacer statut
   const clearPill = document.createElement('div');
-  clearPill.className = `status-pill ${selectedStatusId === 'CLEAR' ? 'active' : ''}`;
-  clearPill.style.backgroundColor = '#f1f5f9';
+  clearPill.className = `status-pill ${selectedTool === 'CLEAR' ? 'active' : ''}`;
+  clearPill.style.backgroundColor = '#e2e8f0';
   clearPill.innerHTML = `<span>Effacer</span>`;
-  clearPill.onclick = () => { selectedStatusId = 'CLEAR'; renderStatuses(); };
+  clearPill.onclick = () => { selectedTool = 'CLEAR'; renderStatuses(); };
   container.appendChild(clearPill);
 
+  // Liste des statuts colorés
   statuses.forEach(status => {
     const pill = document.createElement('div');
-    pill.className = `status-pill ${selectedStatusId === status.id ? 'active' : ''}`;
-    pill.style.backgroundColor = hexToRgba(status.color, 0.15);
-    pill.style.color = status.color;
+    pill.className = `status-pill ${selectedTool === status.id ? 'active' : ''}`;
+    pill.style.backgroundColor = status.color;
+    pill.style.color = getContrastText(status.color);
 
     pill.innerHTML = `
-      <span class="status-dot" style="background:${status.color}"></span>
       <span>${status.name}</span>
-      <span class="delete-status" title="Supprimer ce statut">✕</span>
+      <span class="delete-status" title="Supprimer">✕</span>
     `;
 
     pill.onclick = (e) => {
       if (e.target.classList.contains('delete-status')) {
         statuses = statuses.filter(s => s.id !== status.id);
-        if (selectedStatusId === status.id) selectedStatusId = statuses[0]?.id || null;
+        if (selectedTool === status.id) selectedTool = statuses[0]?.id || 'TASK';
         save();
         renderStatuses();
         renderCalendar();
       } else {
-        selectedStatusId = status.id;
+        selectedTool = status.id;
         renderStatuses();
       }
     };
@@ -115,23 +130,39 @@ function renderCalendar() {
     const assignedStatusId = events[dateKey];
     const statusObj = statuses.find(s => s.id === assignedStatusId);
 
-    let badgeHtml = '';
+    let statusLabelHtml = '';
     if (statusObj) {
-      cell.style.backgroundColor = hexToRgba(statusObj.color, 0.12);
-      badgeHtml = `<div class="day-badge" style="background:${statusObj.color}; color:#fff;">${statusObj.name}</div>`;
+      cell.style.backgroundColor = statusObj.color;
+      cell.style.color = getContrastText(statusObj.color);
+      statusLabelHtml = `<div class="day-status-label">${statusObj.name}</div>`;
+    }
+
+    // Affichage des tâches (pilules blanches en bas de la case)
+    const dayTasks = tasks[dateKey] || [];
+    let tasksHtml = '';
+    if (dayTasks.length > 0) {
+      const visibleTasks = dayTasks.slice(0, 2).map(t => `<div class="task-pill">${t}</div>`).join('');
+      const extra = dayTasks.length > 2 ? `<div class="task-pill">+${dayTasks.length - 2}</div>` : '';
+      tasksHtml = `<div class="day-tasks">${visibleTasks}${extra}</div>`;
     }
 
     cell.innerHTML = `
-      <div class="day-number">${day}</div>
-      ${badgeHtml}
+      <div class="day-top">
+        <div class="day-number">${day}</div>
+        ${statusLabelHtml}
+      </div>
+      ${tasksHtml}
     `;
 
     cell.onclick = () => {
-      if (!selectedStatusId) return;
-      if (selectedStatusId === 'CLEAR' || events[dateKey] === selectedStatusId) {
+      if (selectedTool === 'TASK') {
+        openTaskModal(dateKey, day, month, year);
+        return;
+      }
+      if (selectedTool === 'CLEAR' || events[dateKey] === selectedTool) {
         delete events[dateKey];
       } else {
-        events[dateKey] = selectedStatusId;
+        events[dateKey] = selectedTool;
       }
       save();
       renderCalendar();
@@ -142,6 +173,59 @@ function renderCalendar() {
 
   renderSummary(year, month, daysInMonth);
 }
+
+// Gestion de la fenêtre des tâches
+function openTaskModal(dateKey, day, month, year) {
+  activeModalDate = dateKey;
+  const dateObj = new Date(year, month, day);
+  document.getElementById('modalDateTitle').textContent = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(dateObj);
+  renderModalTasks();
+  document.getElementById('taskModal').classList.add('open');
+  document.getElementById('newTaskInput').focus();
+}
+
+function renderModalTasks() {
+  const list = document.getElementById('modalTaskList');
+  list.innerHTML = '';
+  const dayTasks = tasks[activeModalDate] || [];
+
+  if (dayTasks.length === 0) {
+    list.innerHTML = '<p style="color:#64748b; font-size:0.85rem;">Aucune tâche pour ce jour.</p>';
+    return;
+  }
+
+  dayTasks.forEach((taskText, idx) => {
+    const item = document.createElement('div');
+    item.className = 'task-item';
+    item.innerHTML = `<span>${taskText}</span><button type="button">Suppr.</button>`;
+    item.querySelector('button').onclick = () => {
+      tasks[activeModalDate].splice(idx, 1);
+      if (tasks[activeModalDate].length === 0) delete tasks[activeModalDate];
+      save();
+      renderModalTasks();
+      renderCalendar();
+    };
+    list.appendChild(item);
+  });
+}
+
+document.getElementById('addTaskForm').onsubmit = (e) => {
+  e.preventDefault();
+  const input = document.getElementById('newTaskInput');
+  const val = input.value.trim();
+  if (!val || !activeModalDate) return;
+  if (!tasks[activeModalDate]) tasks[activeModalDate] = [];
+  tasks[activeModalDate].push(val);
+  input.value = '';
+  save();
+  renderModalTasks();
+  renderCalendar();
+};
+
+document.getElementById('closeModalBtn').onclick = () => document.getElementById('taskModal').classList.remove('open');
+document.getElementById('taskModal').onclick = (e) => {
+  if (e.target.id === 'taskModal') document.getElementById('taskModal').classList.remove('open');
+};
 
 document.getElementById('prevMonth').onclick = () => { currentDate.setMonth(currentDate.getMonth() - 1); renderCalendar(); };
 document.getElementById('nextMonth').onclick = () => { currentDate.setMonth(currentDate.getMonth() + 1); renderCalendar(); };
@@ -157,7 +241,7 @@ document.getElementById('addStatusForm').onsubmit = (e) => {
     color: colorInput.value
   };
   statuses.push(newStatus);
-  selectedStatusId = newStatus.id;
+  selectedTool = newStatus.id;
   nameInput.value = '';
   save();
   renderStatuses();
@@ -165,7 +249,7 @@ document.getElementById('addStatusForm').onsubmit = (e) => {
 };
 
 document.getElementById('exportBtn').onclick = () => {
-  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ statuses, events }, null, 2));
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ statuses, events, tasks }, null, 2));
   const dlAnchor = document.createElement('a');
   dlAnchor.setAttribute("href", dataStr);
   dlAnchor.setAttribute("download", `planning-${new Date().toISOString().slice(0,10)}.json`);
@@ -183,6 +267,7 @@ document.getElementById('importFile').onchange = (e) => {
       if (data.statuses && data.events) {
         statuses = data.statuses;
         events = data.events;
+        tasks = data.tasks || {};
         save();
         renderStatuses();
         renderCalendar();
