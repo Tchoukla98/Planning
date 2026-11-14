@@ -24,13 +24,13 @@
 
   <section class="toolbar">
     <div class="toolbar-header">
-      <h2>1. Sélectionnez un statut puis cliquez sur les jours</h2>
+      <h2>1. Choisissez un outil puis cliquez sur un jour</h2>
     </div>
     <div class="status-list" id="statusList"></div>
 
     <form class="add-status-form" id="addStatusForm">
-      <input type="text" id="newStatusName" placeholder="Nouveau statut (ex: Formation)" required>
-      <input type="color" id="newStatusColor" value="#8b5cf6" title="Choisir une couleur">
+      <input type="text" id="newStatusName" placeholder="Nouveau statut (ex: VSAV 1)" required>
+      <input type="color" id="newStatusColor" value="#ef4444" title="Choisir une couleur">
       <button type="submit" class="primary">+ Ajouter</button>
     </form>
   </section>
@@ -46,6 +46,21 @@
     <h3>Récapitulatif du mois</h3>
     <div class="summary-list" id="summaryList"></div>
   </section>
+
+  <!-- Fenêtre pour ajouter/modifier une tâche -->
+  <div class="modal-backdrop" id="taskModal">
+    <div class="modal">
+      <h3 id="modalDateTitle">Tâches du jour</h3>
+      <div class="task-list" id="modalTaskList"></div>
+      <form id="addTaskForm" class="task-form">
+        <input type="text" id="newTaskInput" placeholder="Ex: 14:00 Clinique, Dr petit..." required>
+        <button type="submit" class="primary">Ajouter</button>
+      </form>
+      <div class="modal-footer">
+        <button type="button" id="closeModalBtn">Fermer</button>
+      </div>
+    </div>
+  </div>
 
   <script src="script.js"></script>
 </body>
