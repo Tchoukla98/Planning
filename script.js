@@ -296,11 +296,11 @@ function renderTodoItems() {
     return;
   }
 
-  // Tri : 1) Tâches faites au-dessus des non-faites, 2) Tâches étoilées en priorité
+  // Tri : 1) Tâches NON faites en haut, tâches faites en bas | 2) Étoilées en haut
   const sortedTodos = [...dayTodos].sort((a, b) => {
     const aDone = (a.completedDates || []).includes(activeTodoDateKey) ? 1 : 0;
     const bDone = (b.completedDates || []).includes(activeTodoDateKey) ? 1 : 0;
-    if (bDone !== aDone) return bDone - aDone;
+    if (aDone !== bDone) return aDone - bDone;
     return (b.starred ? 1 : 0) - (a.starred ? 1 : 0);
   });
 
