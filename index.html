@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mon Planning</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
 
@@ -25,7 +25,7 @@
 
   <section class="toolbar">
     <div class="toolbar-header">
-      <h2>1. Choisissez un outil puis cliquez sur un jour</h2>
+      <h2>1. Choisissez un mode puis cliquez sur un jour</h2>
     </div>
     <div class="status-list" id="statusList"></div>
 
@@ -48,22 +48,39 @@
     <div class="summary-list" id="summaryList"></div>
   </section>
 
-  <!-- Modale 1 : Rendez-vous (RDV) d'un jour -->
-  <div class="modal-backdrop" id="rdvModal">
+  <!-- Pop-up 1 : Détails du jour (RDV + lien Todo-list) -->
+  <div class="modal-backdrop" id="dayDetailModal">
     <div class="modal">
-      <h3 id="rdvDateTitle">RDV du jour</h3>
-      <div class="item-list" id="modalRdvList"></div>
-      <form id="addRdvForm" class="inline-form">
-        <input type="text" id="newRdvInput" placeholder="Ex: 14:00 Clinique, Dr petit..." required>
-        <button type="submit" class="primary">Ajouter</button>
-      </form>
-      <div class="modal-footer">
-        <button type="button" id="closeRdvModalBtn">Fermer</button>
+      <div class="modal-top-bar">
+        <h3 id="dayDetailTitle">Samedi 14 Novembre</h3>
+        <button type="button" id="closeDayDetailBtn">✕</button>
+      </div>
+
+      <div class="detail-section">
+        <h4>📅 Rendez-vous (RDV)</h4>
+        <div class="item-list" id="modalRdvList"></div>
+        <form id="addRdvForm" class="inline-form">
+          <input type="text" id="newRdvInput" placeholder="Ajouter un RDV (ex: 14:00 Clinique)..." required>
+          <button type="submit" class="primary">+</button>
+        </form>
+      </div>
+
+      <div class="detail-section todo-link-section">
+        <div id="openTodoFromDetailBtn" class="todo-summary-card">
+          <div class="todo-summary-left">
+            <span class="todo-summary-title">📋 Todo-list</span>
+            <span class="todo-summary-sub">Appuyez pour ouvrir et cocher les tâches</span>
+          </div>
+          <div class="todo-summary-right">
+            <span id="detailTodoCountBadge" class="count-pill">0/0</span>
+            <span class="arrow-right">▶</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Modale 2 : Vue To-Do du jour & Saisie avec récurrence -->
+  <!-- Pop-up 2 : Vue To-Do du jour & Saisie avec récurrence -->
   <div class="modal-backdrop" id="todoModal">
     <div class="modal modal-todo-dark">
       <div class="todo-header">
@@ -93,7 +110,6 @@
     </div>
   </div>
 
-  <script src="script.js?v=2"></script>
+  <script src="script.js?v=3"></script>
 </body>
 </html>
-
