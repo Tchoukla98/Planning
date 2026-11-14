@@ -12,9 +12,10 @@ let events = JSON.parse(localStorage.getItem('planning_events')) || {};
 let rdvs = JSON.parse(localStorage.getItem('planning_rdvs')) || {};
 let todos = JSON.parse(localStorage.getItem('planning_todos')) || [];
 
-let selectedTool = statuses.length > 0 ? statuses[0].id : 'RDV';
+// Par défaut sur 'DETAILS' pour ouvrir le pop-up de la journée au clic
+let selectedTool = 'DETAILS';
 let currentDate = new Date();
-let activeRdvDate = null;
+let activeDetailDateKey = null;
 let activeTodoDateKey = null;
 
 const save = () => {
@@ -35,14 +36,16 @@ function renderStatuses() {
   const container = document.getElementById('statusList');
   container.innerHTML = '';
 
-  const rdvPill = document.createElement('div');
-  rdvPill.className = `status-pill ${selectedTool === 'RDV' ? 'active' : ''}`;
-  rdvPill.style.backgroundColor = '#ffffff';
-  rdvPill.style.border = selectedTool === 'RDV' ? '2px solid #1e293b' : '1px solid #cbd5e1';
-  rdvPill.innerHTML = `<span>📅 RDV</span>`;
-  rdvPill.onclick = () => { selectedTool = 'RDV'; renderStatuses(); };
-  container.appendChild(rdvPill);
+  // Mode Consultation / Détails (RDV + Todo-list)
+  const detailsPill = document.createElement('div');
+  detailsPill.className = `status-pill ${selectedTool === 'DETAILS' ? 'active' : ''}`;
+  detailsPill.style.backgroundColor = '#ffffff';
+  detailsPill.style.border = selectedTool === 'DETAILS' ? '2px solid #1e293b' : '1px solid #cbd5e1';
+  detailsPill.innerHTML = `<span>🔍 Détails / RDV</span>`;
+  detailsPill.onclick = () => { selectedTool = 'DETAILS'; renderStatuses(); };
+  container.appendChild(detailsPill);
 
+  // Mode Effacer statut
   const clearPill = document.createElement('div');
   clearPill.className = `status-pill ${selectedTool === 'CLEAR' ? 'active' : ''}`;
   clearPill.style.backgroundColor = '#f1f5f9';
@@ -50,6 +53,7 @@ function renderStatuses() {
   clearPill.onclick = () => { selectedTool = 'CLEAR'; renderStatuses(); };
   container.appendChild(clearPill);
 
+  // Modes Statuts colorés
   statuses.forEach(status => {
     const pill = document.createElement('div');
     pill.className = `status-pill ${selectedTool === status.id ? 'active' : ''}`;
@@ -65,7 +69,7 @@ function renderStatuses() {
     pill.onclick = (e) => {
       if (e.target.classList.contains('delete-status')) {
         statuses = statuses.filter(s => s.id !== status.id);
-        if (selectedTool === status.id) selectedTool = statuses[0]?.id || 'RDV';
+        if (selectedTool === status.id) selectedTool = 'DETAILS';
         save();
         renderStatuses();
         renderCalendar();
@@ -196,8 +200,8 @@ function renderCalendar() {
     cell.appendChild(bottomDiv);
 
     cell.onclick = () => {
-      if (selectedTool === 'RDV') {
-        openRdvModal(dateKey, dateObj);
+      if (selectedTool === 'DETAILS') {
+        openDayDetailModal(dateKey, dateObj);
         return;
       }
       if (selectedTool === 'CLEAR' || events[dateKey] === selectedTool) {
@@ -215,56 +219,76 @@ function renderCalendar() {
   renderSummary(year, month, daysInMonth);
 }
 
-/* --- GESTION DES RDV --- */
-function openRdvModal(dateKey, dateObj) {
-  activeRdvDate = dateKey;
-  document.getElementById('rdvDateTitle').textContent = 'RDV - ' + new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(dateObj);
-  renderModalRdvs();
-  document.getElementById('rdvModal').classList.add('open');
-  document.getElementById('newRdvInput').focus();
+/* --- POP-UP 1 : DÉTAILS DU JOUR (RDV + LIEN TODO-LIST) --- */
+function openDayDetailModal(dateKey, dateObj) {
+  activeDetailDateKey = dateKey;
+  document.getElementById('dayDetailTitle').textContent = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(dateObj);
+  renderDayDetailContent();
+  document.getElementById('dayDetailModal').classList.add('open');
 }
 
-function renderModalRdvs() {
+function renderDayDetailContent() {
+  if (!activeDetailDateKey) return;
+
+  // 1. Affichage des RDV
   const list = document.getElementById('modalRdvList');
   list.innerHTML = '';
-  const dayRdvs = rdvs[activeRdvDate] || [];
+  const dayRdvs = rdvs[activeDetailDateKey] || [];
 
   if (dayRdvs.length === 0) {
-    list.innerHTML = '<p style="color:#64748b; font-size:0.85rem;">Aucun rendez-vous ce jour.</p>';
-    return;
+    list.innerHTML = '<p style="color:#64748b; font-size:0.85rem;">Aucun rendez-vous prévu.</p>';
+  } else {
+    dayRdvs.forEach((text, idx) => {
+      const item = document.createElement('div');
+      item.className = 'item-row';
+      item.innerHTML = `<span>${text}</span><button type="button">Suppr.</button>`;
+      item.querySelector('button').onclick = () => {
+        rdvs[activeDetailDateKey].splice(idx, 1);
+        if (rdvs[activeDetailDateKey].length === 0) delete rdvs[activeDetailDateKey];
+        save();
+        renderDayDetailContent();
+        renderCalendar();
+      };
+      list.appendChild(item);
+    });
   }
 
-  dayRdvs.forEach((text, idx) => {
-    const item = document.createElement('div');
-    item.className = 'item-row';
-    item.innerHTML = `<span>${text}</span><button type="button">Suppr.</button>`;
-    item.querySelector('button').onclick = () => {
-      rdvs[activeRdvDate].splice(idx, 1);
-      if (rdvs[activeRdvDate].length === 0) delete rdvs[activeRdvDate];
-      save();
-      renderModalRdvs();
-      renderCalendar();
-    };
-    list.appendChild(item);
-  });
+  // 2. Compteur de la Todo-list (ex: 0/5)
+  const [y, m, d] = activeDetailDateKey.split('-').map(Number);
+  const dateObj = new Date(y, m - 1, d);
+  const dayTodos = getTodosForDate(dateObj, activeDetailDateKey);
+  const doneCount = dayTodos.filter(t => (t.completedDates || []).includes(activeDetailDateKey)).length;
+
+  const badge = document.getElementById('detailTodoCountBadge');
+  badge.textContent = `${doneCount}/${dayTodos.length}`;
+  badge.className = `count-pill ${dayTodos.length > 0 && doneCount === dayTodos.length ? 'all-done' : ''}`;
 }
 
 document.getElementById('addRdvForm').onsubmit = (e) => {
   e.preventDefault();
   const input = document.getElementById('newRdvInput');
   const val = input.value.trim();
-  if (!val || !activeRdvDate) return;
-  if (!rdvs[activeRdvDate]) rdvs[activeRdvDate] = [];
-  rdvs[activeRdvDate].push(val);
+  if (!val || !activeDetailDateKey) return;
+  if (!rdvs[activeDetailDateKey]) rdvs[activeDetailDateKey] = [];
+  rdvs[activeDetailDateKey].push(val);
   input.value = '';
   save();
-  renderModalRdvs();
+  renderDayDetailContent();
   renderCalendar();
 };
 
-document.getElementById('closeRdvModalBtn').onclick = () => document.getElementById('rdvModal').classList.remove('open');
+// Clic sur "Todo-list (0/5)" dans le Pop-up 1 -> ouvre le Pop-up 2
+document.getElementById('openTodoFromDetailBtn').onclick = () => {
+  if (activeDetailDateKey) {
+    openTodoModal(activeDetailDateKey);
+  }
+};
 
-/* --- GESTION DES TÂCHES TO-DO (PONCTUELLES & RÉCURRENTES) --- */
+document.getElementById('closeDayDetailBtn').onclick = () => {
+  document.getElementById('dayDetailModal').classList.remove('open');
+};
+
+/* --- POP-UP 2 : VUE TO-DO DU JOUR --- */
 document.getElementById('openAddTaskBtn').onclick = () => {
   const todayKey = new Date().toISOString().split('T')[0];
   openTodoModal(todayKey);
@@ -330,6 +354,7 @@ function renderTodoItems() {
       }
       save();
       renderTodoItems();
+      renderDayDetailContent();
       renderCalendar();
     };
 
@@ -343,6 +368,7 @@ function renderTodoItems() {
       todos = todos.filter(t => t.id !== task.id);
       save();
       renderTodoItems();
+      renderDayDetailContent();
       renderCalendar();
     };
 
@@ -383,11 +409,13 @@ document.getElementById('addTodoForm').onsubmit = (e) => {
   } else {
     renderTodoItems();
   }
+  renderDayDetailContent();
   renderCalendar();
 };
 
 document.getElementById('closeTodoBtn').onclick = () => {
   document.getElementById('todoModal').classList.remove('open');
+  renderDayDetailContent();
 };
 
 /* --- NAVIGATION & SAUVEGARDE --- */
