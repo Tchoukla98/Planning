@@ -16,6 +16,7 @@
       <button id="todayBtn">Aujourd'hui</button>
     </div>
     <div class="backup-actions">
+      <button id="manageListsBtn" class="primary">📋 Listes To-Do</button>
       <button id="exportBtn">Exporter</button>
       <button id="importBtn">Importer</button>
       <input type="file" id="importFile" accept=".json" style="display: none;">
@@ -29,7 +30,7 @@
     <div class="status-list" id="statusList"></div>
 
     <form class="add-status-form" id="addStatusForm">
-      <input type="text" id="newStatusName" placeholder="Nouveau statut (ex: VSAV 1)" required>
+      <input type="text" id="newStatusName" placeholder="Nouveau statut (ex: Garde)" required>
       <input type="color" id="newStatusColor" value="#ef4444" title="Choisir une couleur">
       <button type="submit" class="primary">+ Ajouter</button>
     </form>
@@ -47,18 +48,71 @@
     <div class="summary-list" id="summaryList"></div>
   </section>
 
-  <!-- Fenêtre pour ajouter/modifier une tâche -->
-  <div class="modal-backdrop" id="taskModal">
+  <!-- Modale 1 : Rendez-vous (RDV) d'un jour -->
+  <div class="modal-backdrop" id="rdvModal">
     <div class="modal">
-      <h3 id="modalDateTitle">Tâches du jour</h3>
-      <div class="task-list" id="modalTaskList"></div>
-      <form id="addTaskForm" class="task-form">
-        <input type="text" id="newTaskInput" placeholder="Ex: 14:00 Clinique, Dr petit..." required>
+      <h3 id="rdvDateTitle">RDV du jour</h3>
+      <div class="item-list" id="modalRdvList"></div>
+      <form id="addRdvForm" class="inline-form">
+        <input type="text" id="newRdvInput" placeholder="Ex: 14:00 Clinique, Dr petit..." required>
         <button type="submit" class="primary">Ajouter</button>
       </form>
       <div class="modal-footer">
-        <button type="button" id="closeModalBtn">Fermer</button>
+        <button type="button" id="closeRdvModalBtn">Fermer</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Modale 2 : Gestionnaire des Listes To-Do & Récurrences -->
+  <div class="modal-backdrop" id="listsManagerModal">
+    <div class="modal modal-large">
+      <div class="modal-top-bar">
+        <h3>📋 Mes Listes To-Do</h3>
+        <button type="button" id="closeListsManagerBtn">✕</button>
+      </div>
+
+      <form id="createListForm" class="create-list-box">
+        <input type="text" id="listNameInput" placeholder="Nom de la liste (ex: AF LUNDI Romain)" required>
+        <select id="listRecurrenceType">
+          <option value="weekly">Chaque semaine (jour fixe)</option>
+          <option value="monthly">1x par mois (date fixe)</option>
+          <option value="once">Une seule date précise</option>
+        </select>
+        <select id="listWeekdaySelect">
+          <option value="1">Tous les Lundis</option>
+          <option value="2">Tous les Mardis</option>
+          <option value="3">Tous les Mercredis</option>
+          <option value="4">Tous les Jeudis</option>
+          <option value="5">Tous les Vendredis</option>
+          <option value="6">Tous les Samedis</option>
+          <option value="0">Tous les Dimanches</option>
+        </select>
+        <input type="number" id="listMonthDayInput" min="1" max="31" value="1" style="display:none;" placeholder="Jour du mois (1-31)">
+        <input type="date" id="listExactDateInput" style="display:none;">
+        <button type="submit" class="primary">+ Créer la liste</button>
+      </form>
+
+      <div class="saved-lists-container" id="savedListsContainer"></div>
+    </div>
+  </div>
+
+  <!-- Modale 3 : Vue détaillée d'une liste To-Do (façon Microsoft To Do) -->
+  <div class="modal-backdrop" id="todoDetailModal">
+    <div class="modal modal-todo-dark">
+      <div class="todo-header">
+        <button type="button" id="backFromTodoBtn" class="icon-btn">←</button>
+        <div>
+          <h3 id="todoDetailTitle">AF LUNDI Romain</h3>
+          <span id="todoDetailSubtitle" class="todo-subtitle"></span>
+        </div>
+      </div>
+
+      <div class="todo-items-scroll" id="todoItemsList"></div>
+
+      <form id="addTodoTaskForm" class="todo-add-bar">
+        <input type="text" id="newTodoTaskInput" placeholder="Ajouter une tâche..." required>
+        <button type="submit" class="todo-add-btn">+</button>
+      </form>
     </div>
   </div>
 
