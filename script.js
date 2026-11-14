@@ -1,8 +1,8 @@
 const DEFAULT_STATUSES = [
-  { id: 'garde', name: 'Garde', color: '#ef4444' },
-  { id: 'repos', name: 'Repos', color: '#7cb342' },
-  { id: 'palais', name: 'Palais', color: '#e91e63' },
-  { id: 'reserve', name: 'Réserve', color: '#fb8c00' }
+  { id: 'garde', name: 'Garde', color: '#64748b' },
+  { id: 'repos', name: 'Repos', color: '#65a30d' },
+  { id: 'palais', name: 'Palais', color: '#db2777' },
+  { id: 'reserve', name: 'Réserve', color: '#ea580c' }
 ];
 
 let statuses = JSON.parse(localStorage.getItem('planning_statuses')) || DEFAULT_STATUSES;
@@ -18,44 +18,40 @@ const save = () => {
   localStorage.setItem('planning_tasks', JSON.stringify(tasks));
 };
 
-// Détermine automatiquement si le texte doit être blanc ou noir selon la luminosité de la couleur
-const getContrastText = (hex) => {
+const hexToRgba = (hex, alpha) => {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.6 ? '#0f172a' : '#ffffff';
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
 function renderStatuses() {
   const container = document.getElementById('statusList');
   container.innerHTML = '';
 
-  // Outil Tâche / Note
   const taskPill = document.createElement('div');
   taskPill.className = `status-pill ${selectedTool === 'TASK' ? 'active' : ''}`;
   taskPill.style.backgroundColor = '#ffffff';
-  taskPill.style.border = selectedTool === 'TASK' ? '2px solid #0f172a' : '1px solid #cbd5e1';
+  taskPill.style.border = selectedTool === 'TASK' ? '2px solid #1e293b' : '1px solid #cbd5e1';
   taskPill.innerHTML = `<span>📝 Tâche</span>`;
   taskPill.onclick = () => { selectedTool = 'TASK'; renderStatuses(); };
   container.appendChild(taskPill);
 
-  // Outil Effacer statut
   const clearPill = document.createElement('div');
   clearPill.className = `status-pill ${selectedTool === 'CLEAR' ? 'active' : ''}`;
-  clearPill.style.backgroundColor = '#e2e8f0';
+  clearPill.style.backgroundColor = '#f1f5f9';
   clearPill.innerHTML = `<span>Effacer</span>`;
   clearPill.onclick = () => { selectedTool = 'CLEAR'; renderStatuses(); };
   container.appendChild(clearPill);
 
-  // Liste des statuts colorés
   statuses.forEach(status => {
     const pill = document.createElement('div');
     pill.className = `status-pill ${selectedTool === status.id ? 'active' : ''}`;
-    pill.style.backgroundColor = status.color;
-    pill.style.color = getContrastText(status.color);
+    pill.style.backgroundColor = hexToRgba(status.color, 0.22);
+    pill.style.color = status.color;
 
     pill.innerHTML = `
+      <span class="status-dot" style="background:${status.color}"></span>
       <span>${status.name}</span>
       <span class="delete-status" title="Supprimer">✕</span>
     `;
@@ -130,14 +126,15 @@ function renderCalendar() {
     const assignedStatusId = events[dateKey];
     const statusObj = statuses.find(s => s.id === assignedStatusId);
 
-    let statusLabelHtml = '';
+    let statusTextHtml = '';
     if (statusObj) {
-      cell.style.backgroundColor = statusObj.color;
-      cell.style.color = getContrastText(statusObj.color);
-      statusLabelHtml = `<div class="day-status-label">${statusObj.name}</div>`;
+      // Opacité à 0.22 (10% moins transparent que 0.12)
+      cell.style.backgroundColor = hexToRgba(statusObj.color, 0.22);
+      // Texte simple à droite du chiffre du jour, sans cube
+      statusTextHtml = `<span class="day-status-text" style="color:${statusObj.color};">${statusObj.name}</span>`;
     }
 
-    // Affichage des tâches (pilules blanches en bas de la case)
+    // Cubes pour les tâches en bas de la case
     const dayTasks = tasks[dateKey] || [];
     let tasksHtml = '';
     if (dayTasks.length > 0) {
@@ -147,9 +144,9 @@ function renderCalendar() {
     }
 
     cell.innerHTML = `
-      <div class="day-top">
-        <div class="day-number">${day}</div>
-        ${statusLabelHtml}
+      <div class="day-header">
+        <span class="day-number">${day}</span>
+        ${statusTextHtml}
       </div>
       ${tasksHtml}
     `;
@@ -174,7 +171,6 @@ function renderCalendar() {
   renderSummary(year, month, daysInMonth);
 }
 
-// Gestion de la fenêtre des tâches
 function openTaskModal(dateKey, day, month, year) {
   activeModalDate = dateKey;
   const dateObj = new Date(year, month, day);
