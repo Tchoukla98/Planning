@@ -16,7 +16,7 @@
       <button id="todayBtn">Aujourd'hui</button>
     </div>
     <div class="backup-actions">
-      <button id="manageListsBtn" class="primary">📋 Listes To-Do</button>
+      <button id="openAddTaskBtn" class="primary">+ Tâche To-Do</button>
       <button id="exportBtn">Exporter</button>
       <button id="importBtn">Importer</button>
       <input type="file" id="importFile" accept=".json" style="display: none;">
@@ -63,55 +63,32 @@
     </div>
   </div>
 
-  <!-- Modale 2 : Gestionnaire des Listes To-Do & Récurrences -->
-  <div class="modal-backdrop" id="listsManagerModal">
-    <div class="modal modal-large">
-      <div class="modal-top-bar">
-        <h3>📋 Mes Listes To-Do</h3>
-        <button type="button" id="closeListsManagerBtn">✕</button>
-      </div>
-
-      <form id="createListForm" class="create-list-box">
-        <input type="text" id="listNameInput" placeholder="Nom de la liste (ex: AF LUNDI Romain)" required>
-        <select id="listRecurrenceType">
-          <option value="weekly">Chaque semaine (jour fixe)</option>
-          <option value="monthly">1x par mois (date fixe)</option>
-          <option value="once">Une seule date précise</option>
-        </select>
-        <select id="listWeekdaySelect">
-          <option value="1">Tous les Lundis</option>
-          <option value="2">Tous les Mardis</option>
-          <option value="3">Tous les Mercredis</option>
-          <option value="4">Tous les Jeudis</option>
-          <option value="5">Tous les Vendredis</option>
-          <option value="6">Tous les Samedis</option>
-          <option value="0">Tous les Dimanches</option>
-        </select>
-        <input type="number" id="listMonthDayInput" min="1" max="31" value="1" style="display:none;" placeholder="Jour du mois (1-31)">
-        <input type="date" id="listExactDateInput" style="display:none;">
-        <button type="submit" class="primary">+ Créer la liste</button>
-      </form>
-
-      <div class="saved-lists-container" id="savedListsContainer"></div>
-    </div>
-  </div>
-
-  <!-- Modale 3 : Vue détaillée d'une liste To-Do (façon Microsoft To Do) -->
-  <div class="modal-backdrop" id="todoDetailModal">
+  <!-- Modale 2 : Vue To-Do du jour & Saisie avec récurrence -->
+  <div class="modal-backdrop" id="todoModal">
     <div class="modal modal-todo-dark">
       <div class="todo-header">
-        <button type="button" id="backFromTodoBtn" class="icon-btn">←</button>
+        <button type="button" id="closeTodoBtn" class="icon-btn">←</button>
         <div>
-          <h3 id="todoDetailTitle">AF LUNDI Romain</h3>
-          <span id="todoDetailSubtitle" class="todo-subtitle"></span>
+          <h3 id="todoDateTitle">Tâches du jour</h3>
+          <span id="todoDateSubtitle" class="todo-subtitle"></span>
         </div>
       </div>
 
       <div class="todo-items-scroll" id="todoItemsList"></div>
 
-      <form id="addTodoTaskForm" class="todo-add-bar">
-        <input type="text" id="newTodoTaskInput" placeholder="Ajouter une tâche..." required>
-        <button type="submit" class="todo-add-btn">+</button>
+      <form id="addTodoForm" class="todo-add-panel">
+        <input type="text" id="newTodoTextInput" placeholder="Nouvelle tâche (ex: Laver frigo, Karcher...)" required>
+        
+        <div class="todo-recurrence-row">
+          <select id="todoRecurrenceType">
+            <option value="once">Une seule fois (date choisie)</option>
+            <option value="weekly">Toutes les semaines (ce jour)</option>
+            <option value="monthly">1x par mois (ce quantième)</option>
+          </select>
+          <input type="date" id="todoDateInput" required>
+        </div>
+
+        <button type="submit" class="todo-submit-btn">+ Ajouter la tâche</button>
       </form>
     </div>
   </div>
